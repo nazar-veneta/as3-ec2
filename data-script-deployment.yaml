@@ -1,29 +1,35 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    kompose.cmd: kompose convert -f docker-compose.yml
-    kompose.version: 1.20.0 (f3d54d784)
-  creationTimestamp: null
-  labels:
-    io.kompose.service: data-script
   name: data-script
+  labels:
+    app: data-script
 spec:
   replicas: 1
-  strategy: {}
+  selector:
+    matchLabels:
+      app: data-script
   template:
     metadata:
-      annotations:
-        kompose.cmd: kompose convert -f docker-compose.yml
-        kompose.version: 1.20.0 (f3d54d784)
-      creationTimestamp: null
       labels:
-        io.kompose.network/myapp: "true"
-        io.kompose.service: data-script
+        app: data-script
     spec:
       containers:
-      - image: nazarveneta/quotes-data-script:v1
-        name: data-script
-        resources: {}
+        - image: nazarveneta/quotes-data-script:v1
+          name: data-script
+          envFrom:
+            - secretRef:
+                name: data-script-secret
+      initContainers:
+        - image: nazarveneta/quotes-data-script:v1
+          name: init-data-script
+          args:
+            [
+              "sh",
+              "-c",
+              "until mysql -h ${MYSQL_DB_HOST} -u ${MYSQL_USER} -p${MYSQL_USER_PASSWORD} -e 'show databases;'; do echo waiting for mydb; sleep 2; done",
+            ]
+          envFrom:
+            - secretRef:
+                name: data-script-secret
       restartPolicy: Always
-status: {}
